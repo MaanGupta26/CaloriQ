@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User profile and nutrition goals.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "age": { "type": "number" },
+        "sex": { "type": "string", "enum": ["male", "female", "other"] },
+        "weight_kg": { "type": "number" },
+        "height_cm": { "type": "number" },
+        "activity_level": { "type": "string", "enum": ["sedentary", "light", "moderate", "active", "very_active"] },
+        "goal": { "type": "string", "enum": ["cut", "maintain", "bulk"] },
+        "daily_calorie_goal": { "type": "number" },
+        "protein_goal_g": { "type": "number" },
+        "carbs_goal_g": { "type": "number" },
+        "fat_goal_g": { "type": "number" },
+        "chat_summary": { "type": "string" },
+        "preferred_language": { "type": "string" },
+        "createdAt": { "type": "string", "description": "Timestamp" },
+        "updatedAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["name", "age", "sex", "weight_kg", "height_cm", "activity_level", "goal", "daily_calorie_goal", "protein_goal_g", "carbs_goal_g", "fat_goal_g", "createdAt", "updatedAt"]
+    },
+    "MealLog": {
+      "title": "Meal Log",
+      "description": "User meal log entry.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "log_date": { "type": "string" },
+        "meal_slot": { "type": "string", "enum": ["breakfast", "lunch", "dinner", "snack"] },
+        "meal_name": { "type": "string" },
+        "input_method": { "type": "string", "enum": ["photo", "text", "chat", "manual"] },
+        "photo_url": { "type": "string" },
+        "raw_input": { "type": "string" },
+        "ai_confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "calories": { "type": "number" },
+        "protein_g": { "type": "number" },
+        "carbs_g": { "type": "number" },
+        "fat_g": { "type": "number" },
+        "fiber_g": { "type": "number" },
+        "items_json": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "description": "Timestamp" },
+        "updatedAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["user_id", "log_date", "meal_slot", "meal_name", "input_method", "ai_confidence", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "items_json", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "Chat message from AI coach or user.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string" },
+        "log_triggered": { "type": "boolean" },
+        "log_id": { "type": "string" },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["user_id", "session_id", "role", "content", "createdAt"]
+    },
+    "DailySummary": {
+      "title": "Daily Summary",
+      "description": "Daily summary of user's nutrition.",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "summary_date": { "type": "string" },
+        "total_calories": { "type": "number" },
+        "total_protein_g": { "type": "number" },
+        "total_carbs_g": { "type": "number" },
+        "total_fat_g": { "type": "number" },
+        "total_fiber_g": { "type": "number" },
+        "meal_count": { "type": "number" },
+        "updatedAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["user_id", "summary_date", "total_calories", "total_protein_g", "total_carbs_g", "total_fat_g", "total_fiber_g", "meal_count", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/user_profiles/{userId}": {
+      "schema": "UserProfile",
+      "description": "Stores user profiles."
+    },
+    "/meal_logs/{logId}": {
+      "schema": "MealLog",
+      "description": "Stores meal logs. Security relies on user_id field."
+    },
+    "/chat_messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Stores chat messages. Security relies on user_id field."
+    },
+    "/daily_summaries/{summaryId}": {
+      "schema": "DailySummary",
+      "description": "Stores daily summaries for dashboard caching. Security relies on user_id field."
+    }
+  }
+}

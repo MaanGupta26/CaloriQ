@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+    
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && uid == request.auth.uid; }
+    
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['name', 'age', 'sex', 'weight_kg', 'height_cm', 'activity_level', 'goal', 'daily_calorie_goal', 'protein_goal_g', 'carbs_goal_g', 'fat_goal_g', 'createdAt', 'updatedAt']);
+    }
+    
+    function isValidMealLog(data) {
+      return data.keys().hasAll(['user_id', 'log_date', 'meal_slot', 'meal_name', 'input_method', 'ai_confidence', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'items_json', 'createdAt', 'updatedAt'])
+        && data.user_id is string && data.user_id == request.auth.uid
+        && data.log_date is string && data.log_date.size() == 10 && data.log_date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.meal_slot is string && data.meal_slot in ['breakfast', 'lunch', 'dinner', 'snack']
+        && data.meal_name is string && data.meal_name.size() <= 256
+        && data.input_method is string && data.input_method in ['photo', 'text', 'chat', 'manual']
+        && data.get('photo_url', '') is string
+        && data.get('raw_input', '') is string
+        && data.ai_confidence is string && data.ai_confidence in ['high', 'medium', 'low']
+        && data.calories is number && data.calories >= 0
+        && data.protein_g is number && data.protein_g >= 0
+        && data.carbs_g is number && data.carbs_g >= 0
+        && data.fat_g is number && data.fat_g >= 0
+        && data.fiber_g is number && data.fiber_g >= 0
+        && data.items_json is string && data.items_json.size() <= 10000 // 10KB limit for JSON
+        && data.get('notes', '') is string;
+    }
+    
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['user_id', 'session_id', 'role', 'content', 'createdAt'])
+        && data.user_id is string && data.user_id == request.auth.uid
+        && data.session_id is string && data.session_id.size() <= 128
+        && data.role is string && data.role in ['user', 'assistant']
+        && data.content is string && data.content.size() <= 10000
+        && (data.get('log_triggered', false) is bool)
+        && data.get('log_id', '') is string;
+    }
+    
+    function isValidDailySummary(data) {
+       return data.keys().hasAll(['user_id', 'summary_date', 'total_calories', 'total_protein_g', 'total_carbs_g', 'total_fat_g', 'total_fiber_g', 'meal_count', 'updatedAt'])
+        && data.user_id is string && data.user_id == request.auth.uid
+        && data.summary_date is string && data.summary_date.size() == 10
+        && data.total_calories is number && data.total_calories >= 0
+        && data.total_protein_g is number && data.total_protein_g >= 0
+        && data.total_carbs_g is number && data.total_carbs_g >= 0
+        && data.total_fat_g is number && data.total_fat_g >= 0
+        && data.total_fiber_g is number && data.total_fiber_g >= 0
+        && data.meal_count is number && data.meal_count >= 0;
+    }
+
+    match /user_profiles/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming()) 
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'age', 'weight_kg', 'height_cm', 'activity_level', 'goal', 
+            'daily_calorie_goal', 'protein_goal_g', 'carbs_goal_g', 'fat_goal_g', 
+            'chat_summary', 'preferred_language', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(userId);
+    }
+    
+    match /meal_logs/{logId} {
+      allow get: if isSignedIn() && existing().user_id == request.auth.uid && isValidId(logId);
+      allow list: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(logId) && isValidMealLog(incoming())
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && existing().user_id == request.auth.uid && isValidId(logId) && isValidMealLog(incoming())
+        && incoming().user_id == existing().user_id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && existing().user_id == request.auth.uid && isValidId(logId);
+    }
+    
+    match /chat_messages/{messageId} {
+      allow get: if isSignedIn() && existing().user_id == request.auth.uid && isValidId(messageId);
+      allow list: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(messageId) && isValidChatMessage(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false; // chat messages are immutable
+      allow delete: if isSignedIn() && existing().user_id == request.auth.uid && isValidId(messageId);
+    }
+    
+    match /daily_summaries/{summaryId} {
+      allow get: if isSignedIn() && existing().user_id == request.auth.uid && isValidId(summaryId);
+      allow list: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(summaryId) && isValidDailySummary(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && existing().user_id == request.auth.uid && isValidId(summaryId) && isValidDailySummary(incoming())
+        && incoming().user_id == existing().user_id
+        && incoming().summary_date == existing().summary_date
+        && incoming().updatedAt == request.time;
+      allow delete: if isSignedIn() && existing().user_id == request.auth.uid && isValidId(summaryId);
+    }
+  }
+}

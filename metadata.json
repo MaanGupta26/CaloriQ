@@ -1,0 +1,12 @@
+{
+  "name": "CaloriQ",
+  "description": "AI-powered calorie counter with photo and voice logging, featuring a personalized nutrition coach.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "AI Nutrition Analysis",
+    "Real-time Dashboards",
+    "Smart Chat Coach"
+  ]
+}
